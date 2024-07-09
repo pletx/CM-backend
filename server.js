@@ -48,9 +48,8 @@ const storage = multer.diskStorage({
   }
 });
 
-const upload = multer({
-  dest: './public/uploads/' // Définir un dossier temporaire pour le stockage des fichiers téléchargés
-});
+const upload = multer({ storage: storage });
+
 // Enregistrement de l'utilisateur
 app.post('/api/auth/register', async (req, res) => {
   const { username, password } = req.body;
@@ -105,12 +104,20 @@ app.get('/api/images', async (req, res) => {
 });
 
 // Endpoint pour l'upload d'une image (authentifié)
-app.post('/api/images/upload', upload.single('image'), async (req, res) => {
+app.post('/api/images/upload',authenticateJWT, upload.single('image'), async (req, res) => {
   try {
+    // Récupérer les informations de l'image téléchargée
     const { filename, mimetype, size } = req.file;
 
-    // Déplacer le fichier téléchargé vers le dossier uploads
-    await fs.rename(req.file.path, path.join('./public/uploads', filename));
+    // Enregistrer les métadonnées de l'image dans MongoDB
+    const imagePath = path.join('uploads', filename); // Chemin relatif sur le serveur
+    const newImage = new Image({
+      filename,
+      mimetype,
+      size,
+      uploadPath: imagePath
+    });
+    await newImage.save();
 
     res.status(201).send({ message: 'Image uploaded successfully' });
   } catch (error) {
